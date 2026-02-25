@@ -1,32 +1,23 @@
-# --- Tahap 1: Build ---
-# Gunakan image Node.js versi LTS (Long Term Support) yang ringan (alpine)
-FROM node:18-alpine AS builder
+# ===== Stage 1: Build React =====
+FROM node:20-alpine AS builder
 
-# Set working directory di dalam container
 WORKDIR /app
-
-# Copy package.json dan package-lock.json terlebih dahulu
-# Ini agar Docker bisa memanfaatkan cache layer jika tidak ada perubahan dependency
-COPY package.json package-lock.json ./
-
-# Install dependencies
+COPY package*.json ./
 RUN npm install
 
-# Copy seluruh source code project ke dalam container
 COPY . .
-
-# Build project untuk production
 RUN npm run build
 
-# --- Tahap 2: Production ---
-# Gunakan Nginx alpine yang sangat ringan untuk serving file statis
-FROM nginx:alpine
+# ===== Stage 2: Production Server =====
+FROM node:20-alpine
 
-# Copy hasil build dari tahap sebelumnya (folder /dist) ke folder html Nginx
-COPY --from=builder /app/dist /usr/share/nginx/html
+WORKDIR /app
+COPY package*.json ./
+RUN npm install --omit=dev
 
-# Expose port 80 (port default HTTP)
-EXPOSE 80
+COPY --from=builder /app/dist ./dist
+COPY server.js ./
 
-# Jalankan Nginx
-CMD ["nginx", "-g", "daemon off;"]
+EXPOSE 3015
+
+CMD ["node", "server.js"]
