@@ -6,7 +6,6 @@ import {
   Package, Zap, ChevronRight, Upload, Image as ImageIcon, Loader2, CheckCircle2,
   Target, LayoutGrid, Sparkles, X, Trash2, Eye, HelpCircle, ChevronUp, DollarSign
 } from 'lucide-react';
-import { GoogleGenAI } from "@google/genai";
 import { ProductData, VoucherType, MarginType } from './types';
 import { ProductCard } from './components/ProductCard';
 import { PricingCard } from './components/PricingCard';
@@ -133,32 +132,30 @@ function App() {
     if (analysisResult) setAnalysisResult(null);
   };
 
-  const runAnalysis = async () => {
-    if (uploadedImages.length === 0) return;
-    setIsAnalyzing(true);
-    try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const imageParts = uploadedImages.map(img => ({
-        inlineData: { mimeType: img.type, data: img.base64 },
-      }));
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: {
-          parts: [
-            ...imageParts,
-            { text: "Extract 'Total Penghasilan' (Earnings), 'Sub Total' (Order Total), and 'Jumlah Pesanan' (Quantity) from this Shopee payment screenshot. Return a JSON object: {\"totalEarnings\": number, \"subTotal\": number, \"quantity\": number}. Use numbers only, no currency symbols." },
-          ],
-        },
-        config: { responseMimeType: "application/json" }
-      });
-      const result = JSON.parse(response.text || '{}');
-      setAnalysisResult([result]);
-    } catch (error) {
-      console.error("Analysis failed:", error);
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
+const runAnalysis = async () => {
+  if (uploadedImages.length === 0) return;
+  setIsAnalyzing(true);
+
+  try {
+    const image = uploadedImages[0];
+
+    const res = await fetch("http://localhost:3015/api/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        base64: image.base64,
+        mimeType: image.type,
+      }),
+    });
+
+    const result = await res.json();
+    setAnalysisResult([result]);
+  } catch (error) {
+    console.error("Analysis failed:", error);
+  } finally {
+    setIsAnalyzing(false);
+  }
+};
 
   const analyzerMetrics = useMemo(() => {
     if (!analysisResult || analysisResult.length === 0) return null;
